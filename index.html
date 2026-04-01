@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Transaction Audit Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ─── Design System ─── */
+    :root {
+      --bg:          #0b0e14;
+      --surface:     #121620;
+      --surface-2:   #1a2030;
+      --border:      #1f2d40;
+      --accent:      #00d4ff;
+      --accent-dim:  rgba(0,212,255,0.12);
+      --accent-glow: rgba(0,212,255,0.25);
+      --warn:        #f59e0b;
+      --danger:      #ef4444;
+      --success:     #10b981;
+      --text:        #e2e8f0;
+      --muted:       #64748b;
+      --font-head:   'Syne', sans-serif;
+      --font-mono:   'IBM Plex Mono', monospace;
+      --font-body:   'Inter', sans-serif;
+      --radius:      8px;
+      --shadow:      0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      width: 220px;
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+
+    .sidebar-logo {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo .logo-mark {
+      font-family: var(--font-head);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .sidebar-logo .logo-sub {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 2px;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-section {
+      padding: 16px 0 8px;
+      flex: 1;
+    }
+
+    .nav-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding: 0 20px;
+      margin-bottom: 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      border-left: 2px solid transparent;
+      position: relative;
+    }
+
+    .nav-item:hover { color: var(--text); background: var(--accent-dim); }
+
+    .nav-item.active {
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-left-color: var(--accent);
+    }
+
+    .nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: #fff;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 10px;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .risk-pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 14px;
+      text-align: center;
+    }
+
+    .risk-pill .risk-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .risk-pill .risk-value {
+      font-family: var(--font-head);
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 2px;
+      transition: color 0.3s;
+    }
+
+    /* ─── Main content ─── */
+    .main {
+      margin-left: 220px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-title {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      font-family: var(--font-body);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+    .btn-primary:hover { background: #33ddff; box-shadow: 0 0 16px var(--accent-glow); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+    .btn-danger {
+      background: rgba(239,68,68,0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+    /* ─── Pages ─── */
+    .page { display: none; padding: 28px 32px; animation: fadeIn 0.2s ease; }
+    .page.active { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ─── Stat cards ─── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .stat-card:hover::before { opacity: 1; }
+
+    .stat-card.danger::before { background: var(--danger); opacity: 1; }
+    .stat-card.warn::before { background: var(--warn); opacity: 1; }
+    .stat-card.success::before { background: var(--success); opacity: 1; }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-family: var(--font-head);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-value.danger { color: var(--danger); }
+    .stat-value.warn { color: var(--warn); }
+    .stat-value.success { color: var(--success); }
+    .stat-value.accent { color: var(--accent); }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    /* ─── Section headers ─── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .section-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ─── Two-column layout ─── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+    /* ─── Chart card ─── */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    /* ─── Table ─── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .table-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      padding: 10px 16px;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--accent-dim); }
+
+    tbody td {
+      padding: 10px 16px;
+      color: var(--text);
+    }
+
+    /* ─── Badges ─── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .badge-high   { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-medium { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-low    { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-type   { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+    .badge-flag   { background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.2); margin: 1px; }
+
+    /* ─── Issue cards ─── */
+    .issue-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+    .issue-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: border-color 0.15s;
+    }
+
+    .issue-card:hover { border-color: var(--accent); }
+
+    .issue-indicator {
+      width: 3px;
+      min-height: 40px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .indicator-high   { background: var(--danger); }
+    .indicator-medium { background: var(--warn); }
+    .indicator-low    { background: var(--success); }
+
+    .issue-body { flex: 1; }
+
+    .issue-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .issue-type {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+    }
+
+    .issue-desc {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    .issue-ids {
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* ─── Chat ─── */
+    .chat-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 16px;
+      height: calc(100vh - 160px);
+    }
+
+    .chat-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .agent-dot {
+      width: 8px; height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .message {
+      max-width: 85%;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .message.user { align-self: flex-end; }
+    .message.agent { align-self: flex-start; }
+
+    .message-bubble {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .message.user .message-bubble {
+      background: var(--accent);
+      color: #000;
+      border-bottom-right-radius: 2px;
+    }
+
+    .message.agent .message-bubble {
+      background: var(--surface-2);
+      color: var(--text);
+      border-bottom-left-radius: 2px;
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+
+    .message-meta {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+
+    .message.user .message-meta { text-align: right; }
+
+    .chat-input-area {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 13px;
+      padding: 10px 14px;
+      resize: none;
+      min-height: 42px;
+      max-height: 100px;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+
+    .chat-input:focus { border-color: var(--accent); }
+
+    .quick-prompts {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 0;
+    }
+
+    .quick-prompt {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      line-height: 1.4;
+      text-align: left;
+    }
+
+    .quick-prompt:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ─── Recommendations ─── */
+    .rec-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      align-items: flex-start;
+      transition: border-color 0.15s;
+    }
+
+    .rec-card:hover { border-color: var(--accent); }
+
+    .rec-number {
+      font-family: var(--font-head);
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--border);
+      min-width: 32px;
+      line-height: 1;
+    }
+
+    .rec-body h4 {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .rec-body p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ─── Upload area ─── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 20px;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .upload-zone .upload-icon { font-size: 32px; margin-bottom: 10px; }
+    .upload-zone p { color: var(--muted); font-size: 13px; }
+    .upload-zone strong { color: var(--accent); }
+
+    /* ─── Form ─── */
+    .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-control:focus { border-color: var(--accent); }
+
+    /* ─── Toast ─── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.2s ease;
+      max-width: 300px;
+    }
+
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error   { border-color: var(--danger);  color: var(--danger); }
+    .toast.info    { border-color: var(--accent);  color: var(--accent); }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Loading state ─── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      height: 16px;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .typing-dots span {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.2s infinite;
+    }
+
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    /* ─── Empty state ─── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state h3 { color: var(--text); font-family: var(--font-head); margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; line-height: 1.6; }
+
+    /* ─── Search ─── */
+    .search-input {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 12px;
+      outline: none;
+      width: 200px;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus { border-color: var(--accent); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── Misc ─── */
+    .amount-positive { color: var(--success); }
+    .amount-large    { color: var(--warn); }
+    .mono { font-family: var(--font-mono); }
+    .text-muted { color: var(--muted); }
+    hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .mb-16 { margin-bottom: 16px; }
+    .flex-row { display: flex; align-items: center; gap: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Sidebar ─── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">⬡ Audit Agent</div>
+    <div class="logo-sub">v1.0 · Financial Compliance</div>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Overview</div>
+    <div class="nav-item active" onclick="navigate('dashboard')">
+      <span class="nav-icon">◈</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="navigate('transactions')">
+      <span class="nav-icon">≡</span> Transactions
+    </div>
+
+    <div class="nav-label" style="margin-top:16px">Analysis</div>
+    <div class="nav-item" onclick="navigate('audit')">
+      <span class="nav-icon">⚑</span> Audit Results
+      <span class="nav-badge" id="nav-issue-count">0</span>
+    </div>
+    <div class="nav-item" onclick="navigate('recommendations')">
+      <span class="nav-icon">→</span> Actions
+    </div>
+
+    <div class="nav-label" style="margin-top:16px">Agent</div>
+    <div class="nav-item" onclick="navigate('agent')">
+      <span class="nav-icon">◎</span> AI Agent
+    </div>
+
+    <div class="nav-label" style="margin-top:16px">Data</div>
+    <div class="nav-item" onclick="navigate('upload')">
+      <span class="nav-icon">↑</span> Import Data
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="risk-pill">
+      <div class="risk-label">Risk Score</div>
+      <div class="risk-value" id="sidebar-risk">—</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Main ─── -->
+<div class="main">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Dashboard</div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" onclick="refreshAll()">↺ Refresh</button>
+      <button class="btn btn-primary" onclick="navigate('upload')">↑ Import CSV</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ DASHBOARD PAGE ═══════════════════ -->
+  <div id="page-dashboard" class="page active">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Transactions</div>
+        <div class="stat-value accent" id="stat-total">—</div>
+        <div class="stat-sub">in dataset</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-label">High Risk Issues</div>
+        <div class="stat-value danger" id="stat-high">—</div>
+        <div class="stat-sub">require immediate review</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">Total Flagged</div>
+        <div class="stat-value warn" id="stat-flagged">—</div>
+        <div class="stat-sub">transactions with issues</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Risk Score</div>
+        <div class="stat-value" id="stat-risk" style="color:var(--success)">—</div>
+        <div class="stat-sub">/ 100</div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="chart-card">
+        <div class="section-header">
+          <div class="section-title">Issues by Severity</div>
+          <div class="section-badge" id="severity-date">current dataset</div>
+        </div>
+        <canvas id="severityChart" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="section-header">
+          <div class="section-title">Issue Types Breakdown</div>
+        </div>
+        <canvas id="typeChart" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="section-header">
+          <div class="section-title">Recent Flagged Transactions</div>
+          <button class="btn btn-ghost" style="font-size:11px" onclick="navigate('audit')">View all →</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Date</th><th>Merchant</th><th>Amount</th><th>Flags</th></tr>
+            </thead>
+            <tbody id="dash-flagged-table">
+              <tr><td colspan="5" class="text-muted" style="padding:20px;text-align:center">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="section-header">
+          <div class="section-title">Top Issue Types</div>
+        </div>
+        <div id="dash-top-issues">
+          <div style="color:var(--muted);padding:20px">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ TRANSACTIONS PAGE ═══════════════════ -->
+  <div id="page-transactions" class="page">
+    <div class="table-wrap">
+      <div class="table-toolbar">
+        <div class="section-title">All Transactions</div>
+        <div class="flex-row">
+          <input class="search-input" type="text" id="tx-search" placeholder="Search merchant…" oninput="filterTransactions()">
+          <button class="btn btn-danger" onclick="clearTransactions()">✕ Clear All</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Date</th><th>Merchant</th><th>Amount</th><th>Category</th><th>Type</th><th>Flags</th></tr>
+        </thead>
+        <tbody id="tx-table-body">
+          <tr><td colspan="7" class="text-muted" style="padding:30px;text-align:center">No transactions loaded</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ AUDIT RESULTS PAGE ═══════════════════ -->
+  <div id="page-audit" class="page">
+    <div class="stats-grid" style="margin-bottom:20px">
+      <div class="stat-card danger">
+        <div class="stat-label">High Issues</div>
+        <div class="stat-value danger" id="audit-high">—</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">Medium Issues</div>
+        <div class="stat-value warn" id="audit-med">—</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-label">Low Issues</div>
+        <div class="stat-value" id="audit-low" style="color:var(--success)">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Overall Risk</div>
+        <div class="stat-value accent" id="audit-risk">—</div>
+        <div class="stat-sub">/ 100</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Audit Findings</div>
+      <div class="section-badge" id="issue-count-label">0 issues</div>
+    </div>
+    <div class="issue-list" id="issue-list">
+      <div class="empty-state">
+        <div class="empty-icon">◎</div>
+        <h3>No Issues Found</h3>
+        <p>Upload transactions to run the audit engine.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ RECOMMENDATIONS PAGE ═══════════════════ -->
+  <div id="page-recommendations" class="page">
+    <div class="section-header">
+      <div class="section-title">Recommended Actions</div>
+      <div class="section-badge">auto-generated by audit engine</div>
+    </div>
+    <div id="rec-list">
+      <div style="color:var(--muted);padding:20px">Loading recommendations…</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ AGENT PAGE ═══════════════════ -->
+  <div id="page-agent" class="page">
+    <div class="chat-layout">
+      <div class="chat-panel">
+        <div class="chat-header">
+          <div class="agent-dot"></div>
+          <div>
+            <div style="font-family:var(--font-head);font-weight:700;font-size:14px">Audit Agent</div>
+            <div style="font-size:11px;color:var(--muted)">Powered by Claude · Context-grounded responses</div>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+          <div class="message agent">
+            <div class="message-bubble">
+              Hello! I'm your financial audit assistant. I have access to your full audit report including risk scores, flagged transactions, and issue summaries.
+
+Ask me to summarize risks, explain a flagged transaction, prioritize what to investigate, or suggest next steps.
+            </div>
+            <div class="message-meta">Audit Agent · ready</div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <div class="chat-input-row">
+            <textarea
+              class="chat-input"
+              id="chat-input"
+              placeholder="Ask about audit findings…"
+              onkeydown="handleChatKey(event)"
+              rows="1"
+            ></textarea>
+            <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="chart-card" style="flex:0">
+          <div class="section-title" style="margin-bottom:12px">Quick Prompts</div>
+          <div class="quick-prompts">
+            <button class="quick-prompt" onclick="sendQuick('Summarize the top audit risks in this dataset.')">
+              📊 Summarize audit risks
+            </button>
+            <button class="quick-prompt" onclick="sendQuick('What should I investigate first and why?')">
+              🔍 What to investigate first?
+            </button>
+            <button class="quick-prompt" onclick="sendQuick('Explain the duplicate transactions that were flagged.')">
+              ⚠️ Explain duplicate flags
+            </button>
+            <button class="quick-prompt" onclick="sendQuick('Give me a list of recommended actions to remediate these issues.')">
+              ✅ Recommended actions
+            </button>
+            <button class="quick-prompt" onclick="sendQuick('Are there any patterns in the flagged merchants or categories?')">
+              🔗 Merchant/category patterns
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-card" style="flex:1;overflow-y:auto">
+          <div class="section-title" style="margin-bottom:12px">Audit Snapshot</div>
+          <div id="agent-snapshot" style="color:var(--muted);font-size:13px">
+            Load transactions to see live data.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ UPLOAD PAGE ═══════════════════ -->
+  <div id="page-upload" class="page">
+    <div class="two-col">
+      <div>
+        <div class="section-title" style="margin-bottom:16px">Upload CSV File</div>
+
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('csv-file').click()" ondragover="onDragOver(event)" ondrop="onDrop(event)" ondragleave="onDragLeave()">
+          <div class="upload-icon">↑</div>
+          <p><strong>Click to browse</strong> or drag & drop</p>
+          <p style="margin-top:6px;font-size:11px">CSV format: date, merchant, amount, category, type</p>
+        </div>
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+
+        <div id="upload-result" style="display:none" class="chart-card mb-16">
+          <div id="upload-result-content"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="section-title" style="margin-bottom:12px">Expected CSV Format</div>
+          <pre style="font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.8;overflow-x:auto">date,merchant,amount,category,type
+2024-01-15,Delta Airlines,1250.00,travel,debit
+2024-01-16,AWS,2200.00,software,debit
+2024-01-17,Starbucks,8.50,meals,debit</pre>
+          <div style="margin-top:12px;font-size:12px;color:var(--muted)">
+            <strong style="color:var(--text)">Categories:</strong> travel, meals, supplies, software, hardware, consulting, utilities, marketing, other<br>
+            <strong style="color:var(--text)">Types:</strong> debit, credit, transfer, refund
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title" style="margin-bottom:16px">Manual Entry</div>
+        <div class="chart-card">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" class="form-control" id="m-date">
+            </div>
+            <div class="form-group">
+              <label>Merchant</label>
+              <input type="text" class="form-control" id="m-merchant" placeholder="e.g. Delta Airlines">
+            </div>
+            <div class="form-group">
+              <label>Amount ($)</label>
+              <input type="number" class="form-control" id="m-amount" step="0.01" min="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select class="form-control" id="m-category">
+                <option value="travel">Travel</option>
+                <option value="meals">Meals</option>
+                <option value="supplies">Supplies</option>
+                <option value="software">Software</option>
+                <option value="hardware">Hardware</option>
+                <option value="consulting">Consulting</option>
+                <option value="utilities">Utilities</option>
+                <option value="marketing">Marketing</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select class="form-control" id="m-type">
+                <option value="debit">Debit</option>
+                <option value="credit">Credit</option>
+                <option value="transfer">Transfer</option>
+                <option value="refund">Refund</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="submitManual()" style="width:100%">Add Transaction</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+  const API = '';  // same origin
+
+  // ─── State ───────────────────────────────────────────────────────────────
+  let allTransactions = [];
+  let auditData = {};
+  let chatHistory = [];
+  let severityChart = null;
+  let typeChart = null;
+
+  // ─── Navigation ──────────────────────────────────────────────────────────
+  const pageTitles = {
+    dashboard: 'Dashboard',
+    transactions: 'All Transactions',
+    audit: 'Audit Results',
+    recommendations: 'Recommended Actions',
+    agent: 'AI Audit Agent',
+    upload: 'Import Data',
+  };
+
+  function navigate(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById(`page-${page}`).classList.add('active');
+    document.querySelector(`.nav-item[onclick="navigate('${page}')"]`).classList.add('active');
+    document.getElementById('page-title').textContent = pageTitles[page];
+
+    if (page === 'dashboard') renderDashboard();
+    if (page === 'transactions') renderTransactions();
+    if (page === 'audit') renderAudit();
+    if (page === 'recommendations') loadRecommendations();
+    if (page === 'agent') renderAgentSnapshot();
+  }
+
+  // ─── Data loading ─────────────────────────────────────────────────────────
+  async function fetchJSON(url, opts = {}) {
+    const res = await fetch(API + url, opts);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    return res.json();
+  }
+
+  async function refreshAll() {
+    try {
+      [allTransactions, auditData] = await Promise.all([
+        fetchJSON('/api/transactions'),
+        fetchJSON('/api/audit-results'),
+      ]);
+      updateSidebarRisk();
+      updateNavBadge();
+      // Re-render current page
+      const active = document.querySelector('.page.active');
+      if (active) {
+        const pageId = active.id.replace('page-', '');
+        navigate(pageId);
+      }
+    } catch (e) {
+      toast('Failed to load data: ' + e.message, 'error');
+    }
+  }
+
+  function updateSidebarRisk() {
+    const score = auditData.risk_score ?? 0;
+    const el = document.getElementById('sidebar-risk');
+    el.textContent = score;
+    el.style.color = score > 60 ? 'var(--danger)' : score > 30 ? 'var(--warn)' : 'var(--success)';
+  }
+
+  function updateNavBadge() {
+    const count = (auditData.issues || []).length;
+    document.getElementById('nav-issue-count').textContent = count;
+  }
+
+  // ─── Dashboard ────────────────────────────────────────────────────────────
+  function renderDashboard() {
+    const summary = auditData.summary || {};
+    const issues = auditData.issues || [];
+    const risk = auditData.risk_score ?? 0;
+
+    document.getElementById('stat-total').textContent = summary.total_transactions ?? allTransactions.length;
+    document.getElementById('stat-high').textContent = summary.severity_counts?.high ?? 0;
+    document.getElementById('stat-flagged').textContent = summary.flagged_transaction_count ?? 0;
+    document.getElementById('stat-risk').textContent = risk;
+
+    const riskEl = document.getElementById('stat-risk');
+    riskEl.style.color = risk > 60 ? 'var(--danger)' : risk > 30 ? 'var(--warn)' : 'var(--success)';
+
+    // Flagged transactions table
+    const flagged = allTransactions.filter(t => t.flags && t.flags.length > 0).slice(0, 8);
+    const tbody = document.getElementById('dash-flagged-table');
+    if (flagged.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="padding:20px;text-align:center">No flagged transactions</td></tr>';
+    } else {
+      tbody.innerHTML = flagged.map(t => `
+        <tr>
+          <td class="mono text-muted">#${t.id}</td>
+          <td class="mono">${t.date}</td>
+          <td>${t.merchant}</td>
+          <td class="mono ${t.amount > 5000 ? 'amount-large' : ''}">$${t.amount.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+          <td>${(t.flags||[]).map(f => `<span class="badge badge-flag">${f.replace(/_/g,' ')}</span>`).join('')}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Top issues
+    const typeEl = document.getElementById('dash-top-issues');
+    const typeCounts = summary.issue_type_counts || {};
+    const sorted = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
+    if (sorted.length === 0) {
+      typeEl.innerHTML = '<div class="empty-state" style="padding:30px"><div class="empty-icon">✓</div><h3>Clean Dataset</h3><p>No issues detected.</p></div>';
+    } else {
+      typeEl.innerHTML = sorted.map(([type, count]) => `
+        <div class="rec-card" style="margin-bottom:8px">
+          <div class="rec-number">${count}</div>
+          <div class="rec-body">
+            <h4>${type.replace(/_/g, ' ')}</h4>
+            <p>${count} occurrence${count !== 1 ? 's' : ''} detected</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    renderCharts(summary);
+  }
+
+  function renderCharts(summary) {
+    const sc = summary.severity_counts || {high:0,medium:0,low:0};
+
+    // Severity bar chart
+    if (severityChart) severityChart.destroy();
+    const ctx1 = document.getElementById('severityChart').getContext('2d');
+    severityChart = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: ['High', 'Medium', 'Low'],
+        datasets: [{
+          data: [sc.high||0, sc.medium||0, sc.low||0],
+          backgroundColor: ['rgba(239,68,68,0.7)', 'rgba(245,158,11,0.7)', 'rgba(16,185,129,0.7)'],
+          borderColor:      ['#ef4444', '#f59e0b', '#10b981'],
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#1f2d40' }, ticks: { color: '#64748b' } },
+          y: { grid: { color: '#1f2d40' }, ticks: { color: '#64748b', stepSize: 1 }, beginAtZero: true },
+        }
+      }
+    });
+
+    // Type doughnut
+    if (typeChart) typeChart.destroy();
+    const typeCounts = summary.issue_type_counts || {};
+    const labels = Object.keys(typeCounts).map(k => k.replace(/_/g, ' '));
+    const values = Object.values(typeCounts);
+    const ctx2 = document.getElementById('typeChart').getContext('2d');
+    if (values.length === 0) {
+      typeChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: { labels: ['No issues'], datasets: [{ data: [1], backgroundColor: ['#1f2d40'] }] },
+        options: { plugins: { legend: { labels: { color: '#64748b' } } } }
+      });
+    } else {
+      const palette = ['#00d4ff','#f59e0b','#ef4444','#10b981','#8b5cf6','#ec4899'];
+      typeChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: palette.slice(0, values.length),
+            borderColor: '#0b0e14',
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 } }
+          }
+        }
+      });
+    }
+  }
+
+  // ─── Transactions ─────────────────────────────────────────────────────────
+  function renderTransactions(filter = '') {
+    const tbody = document.getElementById('tx-table-body');
+    const txns = filter
+      ? allTransactions.filter(t => t.merchant.toLowerCase().includes(filter.toLowerCase()))
+      : allTransactions;
+
+    if (txns.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--muted)">No transactions found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = txns.map(t => {
+      const flags = t.flags || [];
+      const amtClass = t.amount > 5000 ? 'amount-large' : '';
+      return `
+        <tr>
+          <td class="mono text-muted">#${t.id}</td>
+          <td class="mono">${t.date}</td>
+          <td>${t.merchant}</td>
+          <td class="mono ${amtClass}">$${t.amount.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+          <td><span class="badge badge-type">${t.category}</span></td>
+          <td><span class="badge badge-type">${t.type}</span></td>
+          <td>${flags.length > 0 ? flags.map(f=>`<span class="badge badge-flag">${f.replace(/_/g,' ')}</span>`).join('') : '<span class="text-muted">—</span>'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterTransactions() {
+    renderTransactions(document.getElementById('tx-search').value);
+  }
+
+  async function clearTransactions() {
+    if (!confirm('Delete all transactions? This cannot be undone.')) return;
+    try {
+      await fetchJSON('/api/transactions', { method: 'DELETE' });
+      allTransactions = [];
+      auditData = {};
+      updateSidebarRisk();
+      updateNavBadge();
+      renderTransactions();
+      toast('All transactions cleared', 'info');
+    } catch(e) {
+      toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ─── Audit ────────────────────────────────────────────────────────────────
+  function renderAudit() {
+    const issues = auditData.issues || [];
+    const summary = auditData.summary || {};
+    const sc = summary.severity_counts || {};
+
+    document.getElementById('audit-high').textContent = sc.high ?? 0;
+    document.getElementById('audit-med').textContent  = sc.medium ?? 0;
+    document.getElementById('audit-low').textContent  = sc.low ?? 0;
+    document.getElementById('audit-risk').textContent = auditData.risk_score ?? 0;
+    document.getElementById('issue-count-label').textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
+
+    const list = document.getElementById('issue-list');
+    if (issues.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✓</div>
+          <h3>No Issues Detected</h3>
+          <p>Upload transactions to run the audit engine and see findings here.</p>
+        </div>`;
+      return;
+    }
+
+    // Sort: high first
+    const sorted = [...issues].sort((a,b) => {
+      const ord = {high:0,medium:1,low:2};
+      return (ord[a.severity]||3) - (ord[b.severity]||3);
+    });
+
+    list.innerHTML = sorted.map(issue => `
+      <div class="issue-card">
+        <div class="issue-indicator indicator-${issue.severity}"></div>
+        <div class="issue-body">
+          <div class="issue-meta">
+            <span class="issue-type">${issue.type.replace(/_/g,' ').toUpperCase()}</span>
+            <span class="badge badge-${issue.severity}">${issue.severity}</span>
+          </div>
+          <div class="issue-desc">${issue.description}</div>
+          <div class="issue-ids">
+            Affected IDs: ${issue.affected_transaction_ids.map(id=>`#${id}`).join(', ')}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── Recommendations ──────────────────────────────────────────────────────
+  async function loadRecommendations() {
+    try {
+      const data = await fetchJSON('/api/recommendations');
+      const recs = data.recommendations || [];
+      const list = document.getElementById('rec-list');
+      if (recs.length === 0) {
+        list.innerHTML = '<div style="color:var(--muted);padding:20px">No data available yet.</div>';
+        return;
+      }
+      list.innerHTML = recs.map(rec => `
+        <div class="rec-card">
+          <div class="rec-number" style="color:var(--border)">${String(rec.priority).padStart(2,'0')}</div>
+          <div class="rec-body">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <h4>${rec.action}</h4>
+              <span class="badge badge-${rec.severity}">${rec.severity}</span>
+            </div>
+            <p>${rec.detail}</p>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) {
+      toast('Error loading recommendations: ' + e.message, 'error');
+    }
+  }
+
+  // ─── Agent ────────────────────────────────────────────────────────────────
+  function renderAgentSnapshot() {
+    const summary = auditData.summary || {};
+    const el = document.getElementById('agent-snapshot');
+    if (!summary.total_transactions) {
+      el.innerHTML = '<div style="color:var(--muted);font-size:13px">No transaction data loaded yet.</div>';
+      return;
+    }
+    const sc = summary.severity_counts || {};
+    el.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:12px">
+        <div class="flex-row" style="justify-content:space-between">
+          <span class="text-muted">Risk Score</span>
+          <span class="mono" style="color:${auditData.risk_score>60?'var(--danger)':auditData.risk_score>30?'var(--warn)':'var(--success)'}">${auditData.risk_score}/100</span>
+        </div>
+        <div class="flex-row" style="justify-content:space-between">
+          <span class="text-muted">Total Transactions</span>
+          <span class="mono">${summary.total_transactions}</span>
+        </div>
+        <div class="flex-row" style="justify-content:space-between">
+          <span class="text-muted">Total Issues</span>
+          <span class="mono">${summary.total_issues}</span>
+        </div>
+        <hr>
+        <div class="flex-row" style="justify-content:space-between">
+          <span style="color:var(--danger)">● High</span>
+          <span class="mono">${sc.high||0}</span>
+        </div>
+        <div class="flex-row" style="justify-content:space-between">
+          <span style="color:var(--warn)">● Medium</span>
+          <span class="mono">${sc.medium||0}</span>
+        </div>
+        <div class="flex-row" style="justify-content:space-between">
+          <span style="color:var(--success)">● Low</span>
+          <span class="mono">${sc.low||0}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function handleChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function sendQuick(msg) {
+    document.getElementById('chat-input').value = msg;
+    sendMessage();
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+
+    appendMessage('user', msg);
+
+    // Add typing indicator
+    const typingId = 'typing-' + Date.now();
+    const msgContainer = document.getElementById('chat-messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = typingId;
+    typingDiv.className = 'message agent';
+    typingDiv.innerHTML = `<div class="message-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+    msgContainer.appendChild(typingDiv);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    try {
+      const res = await fetchJSON('/api/agent-chat', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          message: msg,
+          conversation_history: chatHistory.slice(-10),
+        }),
+      });
+
+      // Remove typing indicator
+      document.getElementById(typingId)?.remove();
+
+      const reply = res.reply;
+      appendMessage('agent', reply);
+
+      // Update history for multi-turn context
+      chatHistory.push({role:'user', content: msg});
+      chatHistory.push({role:'assistant', content: reply});
+
+    } catch(e) {
+      document.getElementById(typingId)?.remove();
+      appendMessage('agent', `⚠️ Error: ${e.message}`);
+    }
+  }
+
+  function appendMessage(role, text) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    const time = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    div.innerHTML = `
+      <div class="message-bubble">${text}</div>
+      <div class="message-meta">${role === 'user' ? 'You' : 'Audit Agent'} · ${time}</div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // ─── Upload ────────────────────────────────────────────────────────────────
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.add('dragover');
+  }
+
+  function onDragLeave() {
+    document.getElementById('upload-zone').classList.remove('dragover');
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('upload-zone').classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) uploadFile(file);
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) uploadFile(file);
+  }
+
+  async function uploadFile(file) {
+    if (!file.name.endsWith('.csv')) {
+      toast('Please upload a CSV file', 'error');
+      return;
+    }
+
+    toast('Uploading and analyzing…', 'info');
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch(API + '/api/upload-transactions', {method:'POST', body: form});
+      const data = await res.json();
+
+      const resultEl = document.getElementById('upload-result');
+      const contentEl = document.getElementById('upload-result-content');
+      resultEl.style.display = 'block';
+
+      contentEl.innerHTML = `
+        <div style="color:var(--success);font-weight:600;margin-bottom:8px">✓ ${data.inserted} transactions imported</div>
+        ${data.errors.length > 0 ? `
+          <div style="color:var(--warn);margin-top:8px;font-size:12px">
+            <strong>${data.errors.length} row(s) skipped:</strong>
+            <ul style="margin-top:6px;padding-left:16px;color:var(--muted)">
+              ${data.errors.slice(0,5).map(e=>`<li>${e}</li>`).join('')}
+              ${data.errors.length > 5 ? `<li>…and ${data.errors.length-5} more</li>` : ''}
+            </ul>
+          </div>
+        ` : ''}
+      `;
+
+      await refreshAll();
+      toast(`Imported ${data.inserted} transactions`, 'success');
+    } catch(e) {
+      toast('Upload failed: ' + e.message, 'error');
+    }
+  }
+
+  async function submitManual() {
+    const d = document.getElementById('m-date').value;
+    const merchant = document.getElementById('m-merchant').value.trim();
+    const amount = parseFloat(document.getElementById('m-amount').value);
+    const category = document.getElementById('m-category').value;
+    const type = document.getElementById('m-type').value;
+
+    if (!d || !merchant || !amount || amount <= 0) {
+      toast('Please fill in all fields with valid values', 'error');
+      return;
+    }
+
+    try {
+      await fetchJSON('/api/transactions', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({date: d, merchant, amount, category, type}),
+      });
+      await refreshAll();
+      toast('Transaction added', 'success');
+      document.getElementById('m-merchant').value = '';
+      document.getElementById('m-amount').value = '';
+    } catch(e) {
+      toast('Error: ' + e.message, 'error');
+    }
+  }
+
+  // ─── Toast ────────────────────────────────────────────────────────────────
+  function toast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const div = document.createElement('div');
+    div.className = `toast ${type}`;
+    div.textContent = msg;
+    container.appendChild(div);
+    setTimeout(() => div.remove(), 3500);
+  }
+
+  // ─── Boot ─────────────────────────────────────────────────────────────────
+  // Set today's date as default for manual entry
+  document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+
+  // Initial load
+  refreshAll();
+</script>
+</body>
+</html>

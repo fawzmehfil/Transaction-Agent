@@ -1,0 +1,51 @@
+date,merchant,amount,category,type
+2024-01-03,Delta Airlines,1250.00,travel,debit
+2024-01-05,Starbucks,8.50,meals,debit
+2024-01-06,AWS,2200.00,software,debit
+2024-01-07,Starbucks,8.50,meals,debit
+2024-01-08,Office Depot,145.00,supplies,debit
+2024-01-10,Starbucks,8.50,meals,debit
+2024-01-10,Acme Consulting,12500.00,consulting,debit
+2024-01-11,Delta Airlines,1250.00,travel,debit
+2024-01-12,Zoom,299.00,software,debit
+2024-01-12,Zoom,299.00,software,debit
+2024-01-14,WeWork,3400.00,utilities,debit
+2024-01-15,Uber Eats,67.00,meals,debit
+2024-01-15,Uber Eats,67.00,meals,debit
+2024-01-16,Adobe,599.00,software,debit
+2024-01-17,FedEx,220.00,supplies,debit
+2024-01-18,Marriott Hotels,8900.00,travel,debit
+2024-01-19,Amazon,450.00,supplies,debit
+2024-01-20,Slack,800.00,software,debit
+2024-01-21,Stripe,180.00,,debit
+2024-01-22,Unknown Vendor,3200.00,random stuff,debit
+2024-01-22,Unknown Vendor,3200.00,random stuff,debit
+2024-01-23,Google Cloud,1800.00,software,debit
+2024-01-24,Apple,999.00,hardware,debit
+2024-01-25,Apple,999.00,hardware,debit
+2024-01-26,Salesforce,15000.00,software,debit
+2024-01-27,DoorDash,55.00,meals,debit
+2024-01-28,DoorDash,55.00,meals,debit
+2024-01-28,DoorDash,55.00,meals,debit
+2024-01-29,Expensify,120.00,software,debit
+2024-01-30,Mystery Corp,6700.00,,transfer
+2024-02-01,Microsoft,2400.00,software,debit
+2024-02-02,United Airlines,890.00,travel,debit
+2024-02-03,Hilton Hotels,5200.00,travel,debit
+2024-02-04,Notion,180.00,software,debit
+2024-02-05,GitHub,210.00,software,debit
+2024-02-06,Atlassian,850.00,software,debit
+2024-02-07,Atlassian,850.00,software,debit
+2024-02-08,Figma,540.00,software,debit
+2024-02-09,Canva,130.00,software,debit
+2024-02-10,WeWork,3400.00,utilities,debit
+2024-02-11,PG&E,780.00,utilities,debit
+2024-02-12,Comcast,320.00,utilities,debit
+2024-02-13,Acme Consulting,12500.00,consulting,debit
+2024-02-14,Payroll Vendor,45000.00,consulting,credit
+2024-02-15,Client Refund,2200.00,other,refund
+2024-02-16,Office Depot,88.00,supplies,debit
+2024-02-17,Staples,210.00,supplies,debit
+2024-02-18,HP Inc,11000.00,hardware,debit
+2024-02-19,Dell Technologies,8500.00,hardware,debit
+2024-02-20,AWS,2200.00,software,debit
