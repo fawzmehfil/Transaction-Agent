@@ -2,6 +2,8 @@
 
 An AI-powered financial audit system that detects transaction anomalies using rule-based logic and generates grounded, explainable insights through an integrated AI agent.
 
+![Demo](assets/demo.png)
+
 ---
 
 ## Overview
